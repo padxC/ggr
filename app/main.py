@@ -43,6 +43,9 @@ def fetchServers():
         if lines[0].startswith('*'): # skip the first line
             lines = lines[1:]
             
+        if lines[0].startswith('#'): # skip the header
+            lines = lines[1:]
+            
         data = csv.reader(lines)
 
         servers = []
@@ -241,7 +244,7 @@ class HTTPHandler(SimpleHTTPRequestHandler):
 def run_http_server():
     handler = HTTPHandler
     httpd = HTTPServer(('localhost', 8080), handler)
-    print("HTTP Server running on http://localhost:8080/frontend")
+    print("HTTP Server running on http://localhost:8080")
     httpd.serve_forever()
 
 async def main():
