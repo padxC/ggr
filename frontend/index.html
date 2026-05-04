@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>PADx - VPN Controller</title>
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="css/index.css">
+    
+    <!-- Material Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    
+    <style>
+        /* WebSocket status indicator */
+        .ws-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.25rem 0.75rem;
+            background: rgba(0, 219, 233, 0.1);
+            border-radius: 1rem;
+            font-size: 0.75rem;
+            margin-left: 1rem;
+        }
+        
+        .ws-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        
+        .ws-dot.connected { background: #10b981; }
+        .ws-dot.disconnected { background: #ef4444; }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Left Sidebar Navigation -->
+    <aside class="sidebar-nav">
+        <div class="sidebar-top">
+            <div class="nav-item active" data-page="dashboard">
+                <span class="material-symbols-outlined nav-icon">dashboard</span>
+                <span class="nav-label">Home</span>
+            </div>
+        </div>
+        <div class="sidebar-bottom">
+            <div class="nav-item" data-page="support">
+                <span class="material-symbols-outlined nav-icon">help</span>
+                <span class="nav-label">Support</span>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Right Sidebar (Status Panel) -->
+    <aside class="status-sidebar">
+        <div class="status-card">
+            <div class="status-header">
+                <div>
+                    <div class="status-label">Status</div>
+                    <div class="status-value" id="connectionStatus">Disconnected</div>
+                </div>
+                <div class="status-indicator disconnected" id="statusIndicator"></div>
+            </div>
+            <div class="ws-status" id="wsStatus">
+                <span class="ws-dot disconnected" id="wsDot"></span>
+                <span id="wsText">Connecting...</span>
+            </div>
+            <div class="current-download">
+                <div class="speed-value">
+                    <span class="speed-number" id="currentSpeed">0</span>
+                    <span class="speed-unit">Mbps</span>
+                </div>
+                <div class="download-label">Current Download</div>
+            </div>
+            <div class="status-details">
+                <div class="detail-row">
+                    <div class="detail-label">Node ID</div>
+                    <div class="detail-value" id="activeNode">--</div>
+                </div>
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <div class="detail-label">Ping</div>
+                        <div class="detail-value" id="activePing">--</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Upload</div>
+                        <div class="detail-value" id="activeUpload">-- <small>Mbps</small></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="action-buttons">
+            <button class="action-btn" id="openBrowserBtn">
+                <span>Open Browser</span>
+                <span class="material-symbols-outlined">public</span>
+            </button>
+            <button class="action-btn primary" id="autoConnectBtn">
+                <span>Auto-Connect</span>
+                <span class="material-symbols-outlined">bolt</span>
+            </button>
+            <button class="action-btn" id="connectSelectedBtn">
+                <span>Connect Selected</span>
+                <span class="material-symbols-outlined">login</span>
+            </button>
+            <button class="action-btn danger" id="disconnectBtn">
+                <span>Disconnect</span>
+                <span class="material-symbols-outlined">power_settings_new</span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="content-wrapper">
+            <div id="dashboardView" class="view active">
+                <!-- Server Table -->
+                <div class="server-table-container">
+                    <div class="table-header">
+                        <h3>
+                            <span class="status-line"></span>
+                            Server List
+                        </h3>
+                        <div class="table-controls">
+                            <span class="control-btn" id="sortByLatency">Sort by Latency</span>
+                            <span class="control-btn" id="refreshServers">Refresh List</span>
+                        </div>
+                    </div>
+                    <div class="table-wrapper">
+                        <table class="server-table">
+                            <thead>
+                                <tr>
+                                    <th>Node ID</th>
+                                    <th>Score</th>
+                                    <th>Speed (Mbps)</th>
+                                    <th>Latency (ms)</th>
+                                    <th>Load / Users</th>
+                                </tr>
+                            </thead>
+                            <tbody id="serverTableBody">
+                                <tr><td colspan="5" style="text-align: center;">Loading servers...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Activity Log -->
+                <div class="activity-log">
+                    <div class="log-header">
+                        <div class="log-title">
+                            <span class="status-line"></span>
+                            <span>Activity Log</span>
+                        </div>
+                    </div>
+                    <div class="log-content" id="activityLog">
+                        <p><span class="timestamp">[System]</span> Initializing VPN Controller...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div class="bg-gradient"></div>
+
+    <script>
+        // WebSocket connection
+        let ws = null;
+        let selectedServer = null;
+        let serversList = [];
+        let currentVPNStatus = false;
+
+        // Connect to WebSocket
+        function connectWebSocket() {
+            ws = new WebSocket('ws://localhost:8765');
+            
+            ws.onopen = () => {
+                console.log('WebSocket connected');
+                document.getElementById('wsDot').className = 'ws-dot connected';
+                document.getElementById('wsText').textContent = 'Connected';
+                addLogEntry('WebSocket connection established', 'success');
+            };
+            
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleWebSocketMessage(data);
+            };
+            
+            ws.onclose = () => {
+                console.log('WebSocket disconnected');
+                document.getElementById('wsDot').className = 'ws-dot disconnected';
+                document.getElementById('wsText').textContent = 'Disconnected';
+                addLogEntry('WebSocket disconnected - Reconnecting...', 'error');
+                setTimeout(connectWebSocket, 3000);
+            };
+            
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                addLogEntry('WebSocket error occurred', 'error');
+            };
+        }
+
+        // Handle WebSocket messages
+        function handleWebSocketMessage(data) {
+            switch(data.type) {
+                case 'connection_status':
+                    addLogEntry(data.message, 'success');
+                    break;
+                    
+                case 'vpn_status':
+                    currentVPNStatus = data.connected;
+                    updateVPNStatus(data.connected);
+                    if (data.server) {
+                        document.getElementById('activeNode').textContent = data.server;
+                    }
+                    break;
+                    
+                case 'server_list':
+                    serversList = data.servers;
+                    renderServerTable(serversList);
+                    addLogEntry(`Loaded ${serversList.length} servers from VPN Gate`, 'success');
+                    break;
+                    
+                case 'command_result':
+                    addLogEntry(data.message, data.success ? 'success' : 'error');
+                    break;
+                    
+                default:
+                    console.log('Unknown message type:', data.type);
+            }
+        }
+
+        // Update VPN status in UI
+        function updateVPNStatus(connected) {
+            const statusElement = document.getElementById('connectionStatus');
+            const indicatorElement = document.getElementById('statusIndicator');
+            const vpnStatusText = document.getElementById('vpnStatusText');
+            
+            if (connected) {
+                statusElement.textContent = 'Connected';
+                statusElement.style.color = '#10b981';
+                indicatorElement.className = 'status-indicator connected';
+            } else {
+                statusElement.textContent = 'Disconnected';
+                statusElement.style.color = '#9ca3af';
+                indicatorElement.className = 'status-indicator disconnected';
+            }
+        }
+
+        // Render server table
+        function renderServerTable(servers) {
+            const tbody = document.getElementById('serverTableBody');
+            if (!tbody) return;
+            
+            tbody.innerHTML = '';
+            
+            if (!servers || servers.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No servers available</td></tr>';
+                return;
+            }
+            
+            servers.forEach(server => {
+                const row = tbody.insertRow();
+                if (selectedServer === server.hostname) row.className = 'selected';
+                
+                // Calculate score based on ping and speed
+                const score = Math.round((100 - Math.min(server.ping, 500) / 5) * (Math.min(server.speed, 1000) / 1000));
+                
+                row.insertCell(0).innerHTML = `<span>${server.country} - ${server.id}</span>`;
+                row.insertCell(1).innerHTML = `<span style="color: #00dbe9;">${score}</span>`;
+                row.insertCell(2).textContent = server.speed.toFixed(1);
+                row.insertCell(3).innerHTML = `<span style="color: ${server.ping < 100 ? '#00dbe9' : '#9ca3af'}">${server.ping}ms</span>`;
+                row.insertCell(4).innerHTML = `<span style="font-size: 10px; color: #6b7280;">${server.users} Users</span>`;
+                
+                row.addEventListener('click', () => {
+                    selectedServer = server;
+                    renderServerTable(servers);
+                    addLogEntry(`Selected: ${server.country} - ${server.id} (${server.ping}ms)`, 'info');
+                    
+                    // Update right sidebar
+                    document.getElementById('activeNode').textContent = server.id;
+                    document.getElementById('activePing').textContent = `${server.ping} ms`;
+                    document.getElementById('currentSpeed').textContent = server.speed.toFixed(1);
+                });
+            });
+        }
+
+        // Sort servers by latency
+        function sortByLatency() {
+            const sorted = [...serversList].sort((a, b) => a.ping - b.ping);
+            renderServerTable(sorted);
+            addLogEntry('Sorted servers by latency', 'info');
+        }
+
+        // Refresh server list
+        function refreshServers() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ command: 'refresh_servers' }));
+                addLogEntry('Refreshing server list...', 'info');
+            }
+        }
+
+        // Connect to selected server
+        function connectToServer() {
+            if (!selectedServer) {
+                addLogEntry('Please select a server first', 'error');
+                return;
+            }
+            
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                addLogEntry(`Connecting to ${selectedServer.country} - ${selectedServer.id}...`, 'info');
+                ws.send(JSON.stringify({
+                    command: 'connect',
+                    hostname: selectedServer.hostname,
+                    port: selectedServer.port,
+                    name: 'MyVPN'
+                }));
+            }
+        }
+
+        // Disconnect VPN
+        function disconnectVPN() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                addLogEntry('Disconnecting VPN...', 'info');
+                ws.send(JSON.stringify({ command: 'disconnect' }));
+            }
+        }
+
+        // Auto-connect to best server
+        function autoConnect() {
+            if (serversList.length === 0) {
+                addLogEntry('No servers available', 'error');
+                return;
+            }
+            
+            const bestServer = [...serversList].sort((a, b) => a.ping - b.ping)[0];
+            selectedServer = bestServer;
+            renderServerTable(serversList);
+            addLogEntry(`Auto-selected best server: ${bestServer.country} - ${bestServer.id} (${bestServer.ping}ms)`, 'success');
+            connectToServer();
+        }
+
+        // Add log entry
+        function addLogEntry(message, type = 'info') {
+            const logContent = document.getElementById('activityLog');
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('p');
+            const colorClass = type === 'error' ? 'timestamp accent' : 'timestamp';
+            entry.innerHTML = `<span class="${colorClass}">[${timestamp}]</span> ${message}`;
+            logContent.appendChild(entry);
+            entry.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            
+            // Keep only last 100 entries
+            while (logContent.children.length > 100) {
+                logContent.removeChild(logContent.firstChild);
+            }
+        }
+
+        // Open browser button
+        document.getElementById('openBrowserBtn')?.addEventListener('click', () => {
+            window.open('https://www.vpngate.net', '_blank');
+        });
+
+        // Event listeners
+        document.getElementById('sortByLatency')?.addEventListener('click', sortByLatency);
+        document.getElementById('refreshServers')?.addEventListener('click', refreshServers);
+        document.getElementById('connectSelectedBtn')?.addEventListener('click', connectToServer);
+        document.getElementById('disconnectBtn')?.addEventListener('click', disconnectVPN);
+        document.getElementById('autoConnectBtn')?.addEventListener('click', autoConnect);
+
+        // Initialize
+        connectWebSocket();
+    </script>
+</body>
+</html>

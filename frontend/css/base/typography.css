@@ -1,0 +1,227 @@
+/* Space Grotesk - Display Font */
+@font-face {
+    font-display: swap;
+    font-family: 'Space Grotesk';
+    font-style: normal;
+    font-weight: 300;
+    src: url('../../assets/fonts/grotesk/space-grotesk-v22-latin-300.woff2') format('woff2');
+}
+
+@font-face {
+    font-display: swap;
+    font-family: 'Space Grotesk';
+    font-style: normal;
+    font-weight: 400;
+    src: url('../../assets/fonts/grotesk/space-grotesk-v22-latin-regular.woff2') format('woff2');
+}
+
+@font-face {
+    font-display: swap;
+    font-family: 'Space Grotesk';
+    font-style: normal;
+    font-weight: 500;
+    src: url('../../assets/fonts/grotesk/space-grotesk-v22-latin-500.woff2') format('woff2');
+}
+
+@font-face {
+    font-display: swap;
+    font-family: 'Space Grotesk';
+    font-style: normal;
+    font-weight: 600;
+    src: url('../../assets/fonts/grotesk/space-grotesk-v22-latin-600.woff2') format('woff2');
+}
+
+@font-face {
+    font-display: swap;
+    font-family: 'Space Grotesk';
+    font-style: normal;
+    font-weight: 700;
+    src: url('../../assets/fonts/grotesk/space-grotesk-v22-latin-700.woff2') format('woff2');
+}
+
+/* Inter - Body Font */
+@font-face {
+    font-display: swap;
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 300;
+    src: url('../../assets/fonts/inter/inter-v20-latin-300.woff2') format('woff2');
+}
+
+@font-face {
+    font-display: swap;
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 400;
+    src: url('../../assets/fonts/inter/inter-v20-latin-regular.woff2') format('woff2');
+}
+
+@font-face {
+    font-display: swap;
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 500;
+    src: url('../../assets/fonts/inter/inter-v20-latin-500.woff2') format('woff2');
+}
+
+@font-face {
+    font-display: swap;
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 600;
+    src: url('../../assets/fonts/inter/inter-v20-latin-600.woff2') format('woff2');
+}
+
+@font-face {
+    font-display: swap;
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 700;
+    src: url('../../assets/fonts/inter/inter-v20-latin-700.woff2') format('woff2');
+}
+
+/* Base Body Styles */
+body {
+    font-family: var(--font-body);
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.5;
+    color: var(--on-background);
+    background-color: var(--background);
+}
+
+/* Typography Classes */
+.font-display {
+    font-family: var(--font-display);
+}
+
+.font-body {
+    font-family: var(--font-body);
+}
+
+.font-mono {
+    font-family: var(--font-display);
+    font-feature-settings: 'ss02', 'ss03', 'cv01', 'cv02';
+}
+
+/* Heading Styles */
+.h1 {
+    font-family: var(--font-display);
+    font-size: 32px;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.h2 {
+    font-family: var(--font-display);
+    font-size: 24px;
+    font-weight: 500;
+    line-height: 1.3;
+}
+
+.h3 {
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 500;
+    line-height: 1.4;
+}
+
+.h4 {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 500;
+    line-height: 1.4;
+}
+
+/* Body Text */
+.body-md {
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1.5;
+}
+
+.body-sm {
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.5;
+}
+
+.label-caps {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.mono-data {
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.4;
+}
+
+.display-lg {
+    font-family: var(--font-display);
+    font-size: 48px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+}
+
+/* Text Colors */
+.text-white {
+    color: white;
+}
+
+.text-gray-400 {
+    color: var(--gray-400);
+}
+
+.text-gray-500 {
+    color: var(--gray-500);
+}
+
+.text-accent-cyan {
+    color: var(--accent-cyan);
+}
+
+.text-accent-purple {
+    color: var(--accent-purple);
+}
+
+.text-error {
+    color: var(--error);
+}
+
+/* Text Utilities */
+.text-center {
+    text-align: center;
+}
+
+.text-left {
+    text-align: left;
+}
+
+.text-right {
+    text-align: right;
+}
+
+.uppercase {
+    text-transform: uppercase;
+}
+
+.lowercase {
+    text-transform: lowercase;
+}
+
+.capitalize {
+    text-transform: capitalize;
+}
+
+.tracking-wider {
+    letter-spacing: 0.05em;
+}
+
+.tracking-widest {
+    letter-spacing: 0.1em;
+}

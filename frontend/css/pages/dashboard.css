@@ -1,0 +1,390 @@
+/* Main Content Area */
+.main-content {
+    margin-left: var(--sidebar-width);
+    margin-right: var(--right-sidebar-width);
+    height: 100vh;
+    overflow-y: auto;
+    position: relative;
+}
+
+.content-wrapper {
+    padding: 2.5rem;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* Stats Grid */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.status-line {
+    width: 20px;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent-cyan), transparent);
+    display: inline-block;
+}
+
+/* Server Table Container - Minimal & Aesthetic */
+.server-table-container {
+    background: rgba(18, 18, 18, 0.6);
+    backdrop-filter: blur(20px);
+    border-radius: 1.5rem;
+    overflow: hidden;
+    margin-bottom: 2rem;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    transition: all var(--transition-base);
+}
+
+.server-table-container:hover {
+    border-color: rgba(0, 240, 255, 0.1);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+/* Table Header - Minimal Design */
+.table-header {
+    padding: 1.25rem 1.5rem;
+    background: rgba(10, 10, 10, 0.5);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.table-header h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    color: rgba(255, 255, 255, 0.9);
+    text-transform: none;
+}
+
+
+
+/* Table Controls - Minimal */
+.table-controls {
+    display: flex;
+    gap: 1.5rem;
+}
+
+.control-btn {
+    font-size: 0.6875rem;
+    font-weight: 400;
+    letter-spacing: 0.01em;
+    text-transform: none;
+    cursor: pointer;
+    color: var(--gray-500);
+    transition: all var(--transition-fast);
+    position: relative;
+    padding-bottom: 0.25rem;
+}
+
+.control-btn::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 0;
+    height: 1px;
+    background: var(--accent-cyan);
+    transition: width var(--transition-base);
+}
+
+.control-btn:hover::after {
+    width: 100%;
+}
+
+.control-btn:hover {
+    color: var(--accent-cyan);
+}
+
+/* Table Wrapper */
+.table-wrapper {
+    overflow-x: auto;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+/* Server Table */
+.server-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.server-table thead tr {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+/* Table Headers - Clean & Minimal */
+.server-table th {
+    text-align: center;
+    padding: 1rem 1.5rem;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--gray-500);
+    background: #0f0f0f;  /* ← THIS FIXES THE TRANSPARENCY */
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    position: sticky;
+    top: 0;
+    z-index: var(--z-elevate);
+}
+
+/* Table Cells */
+.server-table td {
+    padding: 1rem 1.5rem;
+    font-size: 0.8125rem;
+    font-weight: 400;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    color: rgba(255, 255, 255, 0.7);
+    text-align: center;
+}
+
+.server-table tr:hover td {
+    background: rgba(255, 255, 255, 0.02);
+    color: white;
+}
+
+.server-table tr.selected td {
+    background: rgba(0, 240, 255, 0.05);
+    color: white;
+}
+
+.server-table .text-center {
+    text-align: center;
+}
+
+/* Server ID with Star */
+.server-id-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.star-icon {
+    font-size: 0.875rem;
+    color: var(--accent-cyan);
+    opacity: 0.9;
+}
+
+.server-id {
+    font-weight: 500;
+}
+
+/* Score Badge */
+.score-badge {
+    color: var(--accent-cyan);
+    font-weight: 500;
+}
+
+/* Latency Badge */
+.latency-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.375rem;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    background: rgba(0, 240, 255, 0.08);
+    color: var(--accent-cyan);
+    letter-spacing: 0.01em;
+}
+
+.latency-badge.high {
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--gray-400);
+}
+
+/* Users Count */
+.users-count {
+    font-size: 0.6875rem;
+    color: var(--gray-500);
+    padding: 0.25rem 0.5rem;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 0.375rem;
+    display: inline-block;
+}
+
+/* Activity Log - Minimal & Elegant */
+.activity-log {
+    background: rgba(18, 18, 18, 0.6);
+    backdrop-filter: blur(20px);
+    border-radius: 1.5rem;
+    overflow: hidden;
+    height: 280px;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    transition: all var(--transition-base);
+}
+
+.activity-log:hover {
+    border-color: rgba(0, 240, 255, 0.1);
+}
+
+/* Log Header - Make it match table header */
+.log-header {
+    padding: 1.25rem 1.5rem;  /* CHANGE from 1rem to 1.25rem */
+    background: rgba(10, 10, 10, 0.5);  /* CHANGE from 0.4 to 0.5 to match */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+/* Log title text - Match table header text */
+.log-title span:last-child {
+    font-size: 0.8125rem;  /* CHANGE from 0.75rem to 0.8125rem */
+    font-weight: 500;  /* ADD this line */
+    letter-spacing: 0.02em;  /* ADD this line */
+    color: rgba(255, 255, 255, 0.9);  /* CHANGE from 0.7 to 0.9 */
+    text-transform: none;
+}
+
+.log-title {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+}
+
+.log-title .material-symbols-outlined {
+    font-size: 1.125rem;
+    color: var(--gray-500);
+    opacity: 0.7;
+}
+
+
+
+/* Log Content */
+.log-content {
+    padding: 1.25rem 1.5rem;
+    font-family: var(--font-display);
+    color: var(--gray-400);
+    overflow-y: auto;
+    flex: 1;
+    scroll-behavior: smooth;
+}
+
+/* Log Lines */
+.log-line {
+    margin-bottom: 0.5rem;
+    font-family: 'SF Mono', 'Space Grotesk', monospace;
+    font-size: 0.6875rem;
+    line-height: 1.6;
+    display: flex;
+    gap: 1rem;
+    align-items: baseline;
+    opacity: 0.8;
+    transition: opacity var(--transition-fast);
+}
+
+.log-line:hover {
+    opacity: 1;
+}
+
+.log-timestamp {
+    color: var(--accent-cyan);
+    font-size: 0.625rem;
+    letter-spacing: 0.02em;
+    flex-shrink: 0;
+    opacity: 0.7;
+}
+
+.log-message {
+    color: rgba(255, 255, 255, 0.6);
+    word-break: break-word;
+}
+
+.log-line.type-success .log-message {
+    color: var(--accent-green);
+}
+
+.log-line.type-warning .log-message {
+    color: #f59e0b;
+}
+
+.log-line.type-error .log-message {
+    color: #ef4444;
+}
+
+/* Custom Scrollbar for Log */
+.log-content::-webkit-scrollbar {
+    width: 3px;
+}
+
+.log-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.log-content::-webkit-scrollbar-thumb {
+    background: rgba(0, 240, 255, 0.2);
+    border-radius: 3px;
+}
+
+.log-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 240, 255, 0.4);
+}
+
+/* Background Gradient */
+.bg-gradient {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: var(--z-negative);
+    opacity: 0.3;
+}
+
+.bg-gradient::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(0, 240, 255, 0.08) 0%, transparent 70%);
+    border-radius: 50%;
+    filter: blur(100px);
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .content-wrapper {
+        padding: 1rem;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .table-header {
+        flex-direction: column;
+        gap: 0.75rem;
+        align-items: flex-start;
+    }
+    
+    .server-table th,
+    .server-table td {
+        padding: 0.75rem 1rem;
+    }
+}
