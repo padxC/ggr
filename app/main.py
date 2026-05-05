@@ -1,18 +1,14 @@
 import base64
-
 import re
 import csv
-import time
-import subprocess
-
 import json
 import asyncio
 import threading
 import websockets
 import webbrowser
 from http.server import HTTPServer, SimpleHTTPRequestHandler
-
 import requests
+from vpn import VPN
 
 URL = "https://www.vpngate.net/api/iphone/"
 
@@ -44,6 +40,15 @@ def fetchServers():
             lines = lines[1:]
             
         if lines[0].startswith('#'): # skip the header
+            header_line = lines[0].lstrip('#')  # Remove the # at the beginning
+            headers = header_line.split(',')
+            
+            print("="*80)
+            for idx, header in enumerate(headers):
+                print(f"{idx:2d}: {header}")
+            print("="*80 + "\n")
+            
+            # Skip the header line
             lines = lines[1:]
             
         data = csv.reader(lines)
@@ -51,15 +56,11 @@ def fetchServers():
         servers = []
         for row in data:
             if len(row) >= 15:
-                ping = row[3]
-                ping = int(ping) if ping and ping != '-' else 9999
-                
-
                 tcpPort = getTcpPort(row[14]) # 14 is config base64 
                 server = {
                     'hostname': row[0] + ".opengw.net:" + tcpPort,
                     'ip': row[1],
-                    'ping': ping,
+                    'ping': row[3],
                     'speed': row[4],
                     'countryShort': row[6],
                     'uptime': row[8],
@@ -75,66 +76,13 @@ def fetchServers():
         print(f"Error fetching data: {e}")
         return []
     
-def getVpnStatus():
-    try:
-        result = subprocess.run(['powershell.exe', 'rasdial'], 
-                              capture_output=True, text=True, timeout=5)
-        return "Connected" in result.stdout
-    except:
-        return False
-    
-def disconnectVpn():
-    try:
-        subprocess.run(['powershell.exe', 'rasdial', '/disconnect'], capture_output=True)
-        time.sleep(1)
-        return True
-    except:
-        return False
-    
-def connectVpn(address, name):
-    try:
-        print("Disconnecting any existing VPN connections...")
-        subprocess.run(['powershell.exe', 'rasdial', '/disconnect'], capture_output=True, text=True)
-        time.sleep(1)
-
-        subprocess.run(
-            ['powershell.exe', 'Set-VpnConnection', '-Name', name, "-ServerAddress", address],
-            capture_output=True,
-            text=True
-        )
-        
-        vpnStatus = subprocess.run(
-            ['powershell.exe', 'Get-VpnConnection', '-Name', name, '|', 
-             'Select-Object', 'Name,ServerAddress'],
-            capture_output=True, text=True, check=False
-        )
-        print(vpnStatus.stdout)
-        time.sleep(1)
-        
-        print("🔌 Establishing VPN connection...")
-        connectResult = subprocess.run(
-            ['powershell.exe', 'rasdial', name, 'vpn', 'vpn'],
-            capture_output=True,
-            text=True
-        )
-
-        if connectResult.returncode == 0:
-            return True;
-        else:
-            print("Connection Failed: {connectResult.stdout}")
-            return False;
-
-    except Exception as e:
-        print(f"❌ Connection Error: {e}")
-        return False;
-    
 async def broadcast(message):
     """Send message to all connected clients"""
     if CONNECTED_CLIENTS:
         await asyncio.wait([client.send(json.dumps(message)) for client in CONNECTED_CLIENTS])
         
 
-async def websocket_handler(websocket):
+async def wsService(websocket):
     """Handle WebSocket connections"""
     CONNECTED_CLIENTS.add(websocket)
     print(f"Client connected. Total clients: {len(CONNECTED_CLIENTS)}")
@@ -150,7 +98,7 @@ async def websocket_handler(websocket):
         # Send current VPN status
         await websocket.send(json.dumps({
             'type': 'vpn_status',
-            'connected': getVpnStatus()
+            'connected': VPN.isConnecting()
         }))
         
         # Send server list (simple, matching your fetchServers structure)
@@ -167,6 +115,7 @@ async def websocket_handler(websocket):
                     'totalUsers': server['totalUsers'],
                     'totalTraffic': server['totalTraffic']
                 })
+
             await websocket.send(json.dumps({
                 'type': 'server_list',
                 'servers': formatted_servers
@@ -181,7 +130,7 @@ async def websocket_handler(websocket):
                 hostname = data.get('hostname')
                 name = data.get('name', 'MyVPN')
                 
-                result = connectVpn(hostname, name)
+                result = VPN.connect(hostname, name, "vpn", "vpn")
                 await broadcast({
                     'type': 'vpn_status',
                     'connected': result,
@@ -195,7 +144,7 @@ async def websocket_handler(websocket):
                 }))
                 
             elif command == 'disconnect':
-                result = disconnectVpn()
+                result = VPN.disconnect()
                 await broadcast({
                     'type': 'vpn_status',
                     'connected': not result
@@ -210,7 +159,7 @@ async def websocket_handler(websocket):
             elif command == 'get_status':
                 await websocket.send(json.dumps({
                     'type': 'vpn_status',
-                    'connected': getVpnStatus()
+                    'connected': VPN.isConnecting()
                 }))
                 
             elif command == 'refresh_servers':
@@ -237,13 +186,9 @@ async def websocket_handler(websocket):
     finally:
         CONNECTED_CLIENTS.remove(websocket)
         
-class HTTPHandler(SimpleHTTPRequestHandler):
-    def log_message(self, format, *args):
-        pass  # Suppress HTTP logs
 
-def run_http_server():
-    handler = HTTPHandler
-    httpd = HTTPServer(('localhost', 8080), handler)
+def startHTTP():
+    httpd = HTTPServer(('localhost', 8080), SimpleHTTPRequestHandler)
     print("HTTP Server running on http://localhost:8080")
     httpd.serve_forever()
 
@@ -254,11 +199,9 @@ async def main():
     print(f"Loaded {len(SERVER_LIST)} servers")
     
     # Start WebSocket server
-    async with websockets.serve(websocket_handler, "localhost", 8765):
+    async with websockets.serve(wsService, "localhost", 8766):
         print("=" * 50)
-        print("VPN Controller - WebSocket Server")
-        print("=" * 50)
-        print(f"WebSocket: ws://localhost:8765")
+        print(f"WebSocket: ws://localhost:8766")
         print(f"Web UI: http://localhost:8080")
         print("=" * 50)
         
@@ -266,11 +209,8 @@ async def main():
         await asyncio.Future()
 
 if __name__ == "__main__":
-    http_thread = threading.Thread(target=run_http_server, daemon=True)
-    http_thread.start()
-    
+    threading.Thread(target=startHTTP, daemon=True).start()
     # Open browser
     webbrowser.open('http://localhost:8080')
-    
     # Run WebSocket server
     asyncio.run(main())
