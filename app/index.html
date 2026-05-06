@@ -80,6 +80,7 @@
             </div>
             <div class="status-details">
                 <div class="detail-row">
+                    <!-- change to hostname -->
                     <div class="detail-label">Node ID</div>
                     <div class="detail-value" id="activeNode">--</div>
                 </div>
@@ -98,16 +99,12 @@
 
         <div class="action-buttons">
             <button class="action-btn" id="openBrowserBtn">
-                <span>Open Browser</span>
+                <span>Open Rhaon</span>
                 <span class="material-symbols-outlined">public</span>
             </button>
             <button class="action-btn primary" id="autoConnectBtn">
                 <span>Auto-Connect</span>
                 <span class="material-symbols-outlined">bolt</span>
-            </button>
-            <button class="action-btn" id="connectSelectedBtn">
-                <span>Connect Selected</span>
-                <span class="material-symbols-outlined">login</span>
             </button>
             <button class="action-btn danger" id="disconnectBtn">
                 <span>Disconnect</span>
@@ -136,11 +133,11 @@
                         <table class="server-table">
                             <thead>
                                 <tr>
-                                    <th>Node ID</th>
+                                    <th>Hostname</th>
                                     <th>Score</th>
-                                    <th>Speed (Mbps)</th>
-                                    <th>Latency (ms)</th>
-                                    <th>Load / Users</th>
+                                    <th>Speed</th>
+                                    <th>Latency</th>
+                                    <th>Total</th>
                                 </tr>
                             </thead>
                             <tbody id="serverTableBody">
@@ -168,316 +165,9 @@
 
     <div class="bg-gradient"></div>
 
-    <script>
-        // WebSocket connection
-        let ws = null;
-        let selectedServer = null;
-        let serversList = [];
-        let currentVPNStatus = false;
 
-        // Connect to WebSocket
-        function connectWebSocket() {
-            ws = new WebSocket('ws://localhost:8766');
-            
-            ws.onopen = () => {
-                console.log('WebSocket connected');
-                const wsDot = document.getElementById('wsDot');
-                const wsText = document.getElementById('wsText');
-                if (wsDot) wsDot.className = 'ws-dot connected';
-                if (wsText) wsText.textContent = 'Connected';
-                addLogEntry('WebSocket connection established', 'success');
-            };
-            
-            ws.onmessage = (event) => {
-                try {
-                    const data = JSON.parse(event.data);
-                    handleWebSocketMessage(data);
-                } catch (e) {
-                    console.error('Error parsing message:', e);
-                }
-            };
-            
-            ws.onclose = () => {
-                console.log('WebSocket disconnected');
-                const wsDot = document.getElementById('wsDot');
-                const wsText = document.getElementById('wsText');
-                if (wsDot) wsDot.className = 'ws-dot disconnected';
-                if (wsText) wsText.textContent = 'Disconnected';
-                addLogEntry('WebSocket disconnected - Reconnecting...', 'error');
-                setTimeout(connectWebSocket, 3000);
-            };
-            
-            ws.onerror = (error) => {
-                console.error('WebSocket error:', error);
-                addLogEntry('WebSocket error occurred', 'error');
-            };
-        }
-
-        // Handle WebSocket messages
-        function handleWebSocketMessage(data) {
-            console.log('Received:', data);
-            
-            switch(data.type) {
-                case 'connection_status':
-                    addLogEntry(data.message, 'success');
-                    break;
-                    
-                case 'vpn_status':
-                    currentVPNStatus = data.connected;
-                    updateVPNStatus(data.connected);
-                    if (data.server && data.server !== 'undefined') {
-                        const nodeId = data.server.split(':')[0];
-                        document.getElementById('activeNode').textContent = nodeId;
-                    }
-                    break;
-                    
-                case 'server_list':
-                    if (data.servers && data.servers.length > 0) {
-                        serversList = data.servers;
-                        renderServerTable(serversList);
-                        addLogEntry(`Loaded ${serversList.length} servers from VPN Gate`, 'success');
-                    } else {
-                        addLogEntry('No servers available from VPN Gate', 'error');
-                    }
-                    break;
-                    
-                case 'command_result':
-                    addLogEntry(data.message, data.success ? 'success' : 'error');
-                    if (data.success && data.command === 'connect') {
-                        // Refresh status after connection
-                        setTimeout(() => {
-                            if (ws && ws.readyState === WebSocket.OPEN) {
-                                ws.send(JSON.stringify({ command: 'get_status' }));
-                            }
-                        }, 2000);
-                    }
-                    break;
-                    
-                default:
-                    console.log('Unknown message type:', data.type);
-            }
-        }
-
-        // Update VPN status in UI
-        function updateVPNStatus(connected) {
-            const statusElement = document.getElementById('connectionStatus');
-            const indicatorElement = document.getElementById('statusIndicator');
-            
-            if (connected) {
-                if (statusElement) {
-                    statusElement.textContent = 'Connected';
-                    statusElement.style.color = '#10b981';
-                }
-                if (indicatorElement) indicatorElement.className = 'status-indicator connected';
-                addLogEntry('VPN is now connected', 'success');
-            } else {
-                if (statusElement) {
-                    statusElement.textContent = 'Disconnected';
-                    statusElement.style.color = '#9ca3af';
-                }
-                if (indicatorElement) indicatorElement.className = 'status-indicator disconnected';
-            }
-        }
-
-        // Render server table - FIXED to match backend data structure
-        function renderServerTable(servers) {
-            const tbody = document.getElementById('serverTableBody');
-            if (!tbody) return;
-            
-            tbody.innerHTML = '';
-            
-            if (!servers || servers.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No servers available</td></tr>';
-                return;
-            }
-            
-            servers.forEach(server => {
-                const row = tbody.insertRow();
-                
-                // Check if this server is selected
-                if (selectedServer && selectedServer.hostname === server.hostname) {
-                    row.className = 'selected';
-                }
-                
-                // Create display values from backend data
-                const nodeId = `${server.countryShort || 'Unknown'} - ${server.ip?.split('.')[0] || 'VPN'}`;
-                const pingValue = parseInt(server.ping) || 999;
-                const speedValue = parseFloat(server.speed) || 0;
-                const usersValue = server.totalUsers || 'N/A';
-                
-                // Calculate score based on ping and speed (lower ping is better, higher speed is better)
-                let score = 0;
-                if (pingValue < 999 && speedValue > 0) {
-                    score = Math.max(0, Math.min(100, 
-                        Math.round(((1000 - Math.min(pingValue, 500)) / 10) * (Math.min(speedValue, 100) / 100))
-                    ));
-                } else if (pingValue < 999) {
-                    score = Math.max(0, Math.min(100, Math.round((1000 - Math.min(pingValue, 500)) / 10)));
-                } else {
-                    score = 0;
-                }
-                
-                row.insertCell(0).innerHTML = `<span>${nodeId}</span>`;
-                row.insertCell(1).innerHTML = `<span style="color: #00dbe9;">${score}</span>`;
-                row.insertCell(2).textContent = speedValue > 0 ? speedValue.toFixed(1) : 'N/A';
-                row.insertCell(3).innerHTML = `<span style="color: ${pingValue < 150 ? '#00dbe9' : '#9ca3af'}">${pingValue}ms</span>`;
-                row.insertCell(4).innerHTML = `<span style="font-size: 10px; color: #6b7280;">${usersValue} Users</span>`;
-                
-                row.addEventListener('click', () => {
-                    selectedServer = server;
-                    renderServerTable(servers);
-                    addLogEntry(`Selected: ${nodeId} (${pingValue}ms)`, 'info');
-                    
-                    // Update right sidebar
-                    document.getElementById('activeNode').textContent = nodeId;
-                    document.getElementById('activePing').textContent = `${pingValue} ms`;
-                    if (speedValue > 0) {
-                        document.getElementById('currentSpeed').textContent = speedValue.toFixed(1);
-                    } else {
-                        document.getElementById('currentSpeed').textContent = 'N/A';
-                    }
-                });
-            });
-        }
-
-        // Sort servers by latency
-        function sortByLatency() {
-            if (!serversList.length) return;
-            const sorted = [...serversList].sort((a, b) => {
-                const pingA = parseInt(a.ping) || 9999;
-                const pingB = parseInt(b.ping) || 9999;
-                return pingA - pingB;
-            });
-            renderServerTable(sorted);
-            addLogEntry('Sorted servers by latency', 'info');
-        }
-
-        // Refresh server list
-        function refreshServers() {
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ command: 'refresh_servers' }));
-                addLogEntry('Refreshing server list...', 'info');
-            } else {
-                addLogEntry('WebSocket not connected. Cannot refresh.', 'error');
-            }
-        }
-
-        // Connect to selected server
-        function connectToServer() {
-            if (!selectedServer) {
-                addLogEntry('Please select a server first', 'error');
-                return;
-            }
-            
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                const hostname = selectedServer.hostname;
-                const nodeId = `${selectedServer.countryShort || 'Unknown'} - ${selectedServer.ip?.split('.')[0] || 'VPN'}`;
-                
-                addLogEntry(`Connecting to ${nodeId}...`, 'info');
-                addLogEntry(`Server address: ${hostname}`, 'info');
-                
-                ws.send(JSON.stringify({
-                    command: 'connect',
-                    hostname: hostname,
-                    name: 'MyVPN'
-                }));
-            } else {
-                addLogEntry('WebSocket not connected. Cannot connect.', 'error');
-            }
-        }
-
-        // Disconnect VPN
-        function disconnectVPN() {
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                addLogEntry('Disconnecting VPN...', 'info');
-                ws.send(JSON.stringify({ command: 'disconnect' }));
-            } else {
-                addLogEntry('WebSocket not connected.', 'error');
-            }
-        }
-
-        // Auto-connect to best server (lowest ping)
-        function autoConnect() {
-            if (serversList.length === 0) {
-                addLogEntry('No servers available. Please refresh the list first.', 'error');
-                return;
-            }
-            
-            // Find server with lowest ping
-            const bestServer = [...serversList].sort((a, b) => {
-                const pingA = parseInt(a.ping) || 9999;
-                const pingB = parseInt(b.ping) || 9999;
-                return pingA - pingB;
-            })[0];
-            
-            selectedServer = bestServer;
-            renderServerTable(serversList);
-            const nodeId = `${bestServer.countryShort || 'Unknown'} - ${bestServer.ip?.split('.')[0] || 'VPN'}`;
-            addLogEntry(`Auto-selected best server: ${nodeId} (${bestServer.ping}ms)`, 'success');
-            connectToServer();
-        }
-
-        // Add log entry
-        function addLogEntry(message, type = 'info') {
-            const logContent = document.getElementById('activityLog');
-            if (!logContent) return;
-            
-            const timestamp = new Date().toLocaleTimeString();
-            const entry = document.createElement('p');
-            const colorClass = type === 'error' ? 'timestamp accent' : 'timestamp';
-            entry.innerHTML = `<span class="${colorClass}">[${timestamp}]</span> ${message}`;
-            logContent.appendChild(entry);
-            entry.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            
-            // Keep only last 100 entries
-            while (logContent.children.length > 100) {
-                logContent.removeChild(logContent.firstChild);
-            }
-        }
-
-        // Request initial status and servers after connection
-        function requestInitialData() {
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ command: 'get_status' }));
-                // Server list is sent automatically by backend on connection
-                // But we can also request refresh to ensure we have latest
-                setTimeout(() => {
-                    if (ws && ws.readyState === WebSocket.OPEN) {
-                        ws.send(JSON.stringify({ command: 'refresh_servers' }));
-                    }
-                }, 500);
-            }
-        }
-
-        // Open browser button
-        document.getElementById('openBrowserBtn')?.addEventListener('click', () => {
-            window.open('https://www.vpngate.net', '_blank');
-        });
-
-        // Event listeners
-        document.getElementById('sortByLatency')?.addEventListener('click', sortByLatency);
-        document.getElementById('refreshServers')?.addEventListener('click', refreshServers);
-        document.getElementById('connectSelectedBtn')?.addEventListener('click', connectToServer);
-        document.getElementById('disconnectBtn')?.addEventListener('click', disconnectVPN);
-        document.getElementById('autoConnectBtn')?.addEventListener('click', autoConnect);
-
-        // Initialize
-        connectWebSocket();
-        
-        // Request initial data after connection is established
-        setTimeout(() => {
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                requestInitialData();
-            } else {
-                // Wait for connection
-                const checkInterval = setInterval(() => {
-                    if (ws && ws.readyState === WebSocket.OPEN) {
-                        clearInterval(checkInterval);
-                        requestInitialData();
-                    }
-                }, 100);
-            }
-        }, 1000);
-    </script>
+    <script src="js/websocket.js"></script>
+    <script src="js/repositories.js"></script>
+    <script src="js/app.js"></script>
 </body>
 </html>

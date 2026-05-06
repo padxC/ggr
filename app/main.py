@@ -9,12 +9,14 @@ import webbrowser
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 import requests
 from vpn import VPN
+from monitor import Monitor
 
 URL = "https://www.vpngate.net/api/iphone/"
 
 SERVER_LIST = []
 CONNECTED_CLIENTS = set()
 CURRENT_VPN_STATUS = {"connected": False, "server": None}
+MONITOR = Monitor("trgame.exe")
 
 def getTcpPort(config):
     try:
@@ -131,6 +133,11 @@ async def wsService(websocket):
                 name = data.get('name', 'MyVPN')
                 
                 result = VPN.connect(hostname, name, "vpn", "vpn")
+                
+                if result:
+                    # Start monitoring with callback to disconnect VPN
+                    MONITOR.start(callback=lambda: VPN.disconnect())
+
                 await broadcast({
                     'type': 'vpn_status',
                     'connected': result,
@@ -145,6 +152,7 @@ async def wsService(websocket):
                 
             elif command == 'disconnect':
                 result = VPN.disconnect()
+                MONITOR.stop() 
                 await broadcast({
                     'type': 'vpn_status',
                     'connected': not result
