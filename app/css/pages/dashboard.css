@@ -65,6 +65,57 @@
     text-transform: none;
 }
 
+/* Filter Toggles - Same as control-btn */
+.filter-toggles {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-right: 1rem;
+}
+
+.filter-toggle {
+    font-size: 0.6875rem;
+    font-weight: 400;
+    letter-spacing: 0.01em;
+    text-transform: none;
+    cursor: pointer;
+    color: var(--gray-500);
+    transition: all var(--transition-fast);
+    position: relative;
+    padding-bottom: 0.25rem;
+    background: transparent;
+    border: none;
+    font-family: var(--font-body);
+}
+
+/* Underline animation */
+.filter-toggle::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 0;
+    height: 1px;
+    background: var(--accent-cyan);
+    transition: width var(--transition-base);
+}
+
+.filter-toggle:hover::after {
+    width: 100%;
+}
+
+.filter-toggle:hover {
+    color: var(--accent-cyan);
+}
+
+.filter-toggle.active {
+    color: var(--accent-cyan);
+}
+
+.filter-toggle.active::after {
+    width: 100%;
+}
+
 
 
 /* Table Controls - Minimal */

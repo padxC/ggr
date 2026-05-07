@@ -114,31 +114,61 @@ class Activity {
 class ServerTableManager {
     constructor(tableBodyId, onServerSelect) {
         this.tableBody = document.getElementById(tableBodyId);
-        this.servers = [];
+        this.servers = [];           // Full server list
+        this.filteredServers = [];   // Filtered list
         this.selectedServer = null;
         this.onServerSelect = onServerSelect;
         this.sortField = null;
         this.sortDirection = 'asc';
+        this.countryFilter = 'KR';   // Default to Korea
     }
 
     updateServers(servers) {
-        // this.servers = servers;
-         this.servers = servers.filter(server => server.countryShort === 'KR');
+        // Store full server list
+        this.servers = servers;
+        
+        // Apply current filter
+        this.applyFilter();
+    }
+    
+    setCountryFilter(countryCode) {
+        this.countryFilter = countryCode;
+        this.applyFilter();
+        
+        // Update active state on toggle buttons
+        const toggles = document.querySelectorAll('.filter-toggle');
+        toggles.forEach(toggle => {
+            if (toggle.dataset.country === countryCode) {
+                toggle.classList.add('active');
+            } else {
+                toggle.classList.remove('active');
+            }
+        });
+    }
+    
+    applyFilter() {
+        // Filter only for KR or TH
+        this.filteredServers = this.servers.filter(
+            server => server.countryShort === this.countryFilter
+        );
+        
+        // Re-render with filtered list
         this.render();
     }
-
+    
     render() {
         if (!this.tableBody) return;
         
         this.tableBody.innerHTML = '';
         
-        if (!this.servers || this.servers.length === 0) {
-            this.tableBody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No servers available</td></tr>';
+        if (!this.filteredServers || this.filteredServers.length === 0) {
+            const countryName = this.countryFilter === 'KR' ? 'Korea' : 'Thailand';
+            this.tableBody.innerHTML = `<tr><td colspan="5" style="text-align: center;">No servers available for ${countryName}</td></tr>`;
             return;
         }
         
         // Apply sorting if active
-        let displayServers = [...this.servers];
+        let displayServers = [...this.filteredServers];
         if (this.sortField) {
             displayServers.sort((a, b) => {
                 let valA = this.getSortValue(a, this.sortField);
@@ -219,7 +249,6 @@ class ServerTableManager {
             }
         });
         
-        
         return row;
     }
 
@@ -240,7 +269,7 @@ class ServerTableManager {
     }
 
     getNodeId(server) {
-        return server.hostname.split('.')[0]; // take a first part
+        return server.hostname.split('.')[0];
     }
 
     getSelectedServer() {
@@ -274,6 +303,7 @@ class App {
         this.ui = null;
         this.activity = null;
         this.serverTable = null;
+        this.isConnecting = false;
         
         this.init();
     }
@@ -281,10 +311,13 @@ class App {
     init() {
         // Setup message handlers
         const messageHandlers = {
-            'connection_status': (data) => this.handleConnectionStatus(data),
+            'connected': (data) => {
+                // Server confirmed connection, now request data
+                this.activity.add(data.message, 'success');
+                this.requestInitialData();
+            },
             'vpn_status': (data) => this.handleVPNStatus(data),
             'server_list': (data) => this.handleServerList(data),
-            'command_result': (data) => this.handleCommandResult(data)
         };
         
         // Initialize managers
@@ -298,7 +331,6 @@ class App {
         this.ws.on('onOpen', () => {
             this.ui.updateWebSocketStatus(true);
             this.activity.add('WebSocket connection established', 'success');
-            this.requestInitialData();
         });
         
         this.ws.on('onClose', () => {
@@ -338,6 +370,16 @@ class App {
             refreshBtn.addEventListener('click', () => this.refreshServers());
         }
         
+    const filterToggles = document.querySelectorAll('.filter-toggle');
+    filterToggles.forEach(toggle => {
+        toggle.addEventListener('click', (e) => {
+            const country = e.currentTarget.dataset.country;
+            this.serverTable.setCountryFilter(country);
+            const countryName = country === 'KR' ? 'Korea' : 'Thailand';
+            this.activity.add(`Filtered: ${countryName} servers`, 'info');
+        });
+    });
+        
         
         // Disconnect button
         const disconnectBtn = document.getElementById('disconnectBtn');
@@ -360,11 +402,9 @@ class App {
         }
     }
 
-    handleConnectionStatus(data) {
-        this.activity.add(data.message, 'success');
-    }
 
     handleVPNStatus(data) {
+        this.isConnecting = false;
         this.ui.updateVPNStatus(data.connected, data.server);
         this.activity.add(
             `VPN ${data.connected ? 'connected' : 'disconnected'}`,
@@ -387,15 +427,6 @@ class App {
         }
     }
 
-    handleCommandResult(data) {
-        this.activity.add(data.message, data.success ? 'success' : 'error');
-        
-        if (data.success && data.command === 'connect') {
-            setTimeout(() => {
-                this.repository.getStatus();
-            }, 2000);
-        }
-    }
 
     onServerSelected(server, stats) {
         this.ui.updateServerDetails(server, stats);
@@ -408,7 +439,7 @@ class App {
     }
 
     refreshServers() {
-        if (this.repository.refresh()) {
+        if (this.repository.refreshServers()) {
             this.activity.add('Refreshing server list...', 'info');
         } else {
             this.activity.add('Cannot refresh. WebSocket not connected.', 'error');
@@ -422,6 +453,8 @@ class App {
             this.activity.add('Please select a server first', 'error');
             return;
         }
+        
+        this.isConnecting = true;
         
         const nodeId = this.serverTable.getNodeId(server);
         this.activity.add(`Connecting to ${nodeId}...`, 'info');
@@ -464,7 +497,7 @@ class App {
     requestInitialData() {
         this.repository.getStatus();
         setTimeout(() => {
-            this.repository.refresh();
+            this.repository.refreshServers();
         }, 500);
     }
 }

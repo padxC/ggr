@@ -16,7 +16,7 @@ class Repository {
         return this.ws.send('get_status');
     }
 
-    refresh() {
+    refreshServers() {
         return this.ws.send('refresh_servers');
     }
 }

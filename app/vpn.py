@@ -1,8 +1,71 @@
+import json
+import os
 import subprocess
 import time
 
 
 class VPN:
+    DATA_FILE = "data.json"
+    
+    @staticmethod
+    def _load():
+        """Load or create database"""
+        if os.path.exists(VPN.DATA_FILE):
+            with open(VPN.DATA_FILE, 'r') as f:
+                return json.load(f)
+        return {'last_connection': None}
+    
+    @staticmethod
+    def _save(data):
+        """Save to database"""
+        with open(VPN.DATA_FILE, 'w') as f:
+            json.dump(data, f, indent=2)
+            
+    @staticmethod
+    def saveConnection(hostname):
+        """Save last connection"""
+        data = VPN._load()
+        data['last_connection'] = {
+            'hostname': hostname,
+            'timestamp': time.time()
+        }
+        VPN._save(data)
+    
+    @staticmethod
+    def getLastConnection():
+        """Get last connection"""
+        data = VPN._load()
+        return data.get('last_connection')
+    
+
+    @staticmethod
+    def isReachable(address):
+        """Check if VPN server is reachable"""
+        try:
+            host = address.split(':')[0]  # Remove port if present
+            result = subprocess.run(
+                ['powershell.exe', 'ping', '-n', '2', '-w', '1000', host],
+                capture_output=True,
+                timeout=3
+            )
+            return result.returncode == 0
+        except:
+            return False
+        
+    @staticmethod
+    def checkConnection(hostname):
+        """Check if saved VPN is still usable"""
+        # Check 1: Is the last server reachable?
+        reachable = VPN.isReachable(hostname)
+        
+        # Check 2: Is VPN currently connected?
+        connected = VPN.isConnecting()
+        
+        return {
+            'reachable': reachable,
+            'connected': connected,
+        }
+
     @staticmethod
     def isConnecting():
         """Check if VPN is currently connected"""

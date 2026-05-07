@@ -1,32 +1,25 @@
 import base64
 import re
 import csv
-import json
 import asyncio
 import threading
-import websockets
 import webbrowser
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 import requests
 from vpn import VPN
 from monitor import Monitor
+from websocket import Ws
 
 URL = "https://www.vpngate.net/api/iphone/"
-
 SERVER_LIST = []
-CONNECTED_CLIENTS = set()
-CURRENT_VPN_STATUS = {"connected": False, "server": None}
 MONITOR = Monitor("trgame.exe")
+WS = None
 
 def getTcpPort(config):
     try:
         data = base64.b64decode(config).decode('utf-8', errors='ignore')
         tcpMatch = re.search(r'proto\s+tcp.*?remote\s+\S+\s+(\d+)', data, re.DOTALL | re.IGNORECASE)
-        
-        if tcpMatch:
-            return tcpMatch.group(1)
-        
-        return None
+        return tcpMatch.group(1) if tcpMatch else None
     except Exception as e:
         print(f"Error parsing TCP port: {e}")
         return None
@@ -35,12 +28,10 @@ def fetchServers():
     global SERVER_LIST
     try:
         response = requests.get(URL, timeout=10)
-        data = response.text
-        
-        lines = data.strip().split('\n')
+        lines = response.text.strip().split('\n')
+
         if lines[0].startswith('*'): # skip the first line
             lines = lines[1:]
-            
         if lines[0].startswith('#'): # skip the header
             header_line = lines[0].lstrip('#')  # Remove the # at the beginning
             headers = header_line.split(',')
@@ -49,13 +40,12 @@ def fetchServers():
             for idx, header in enumerate(headers):
                 print(f"{idx:2d}: {header}")
             print("="*80 + "\n")
-            
-            # Skip the header line
-            lines = lines[1:]
+            lines = lines[1:] # Skip the header line
             
         data = csv.reader(lines)
-
         servers = []
+
+        seen_countries= set()
         for row in data:
             if len(row) >= 15:
                 tcpPort = getTcpPort(row[14]) # 14 is config base64 
@@ -64,12 +54,18 @@ def fetchServers():
                     'ip': row[1],
                     'ping': row[3],
                     'speed': row[4],
+                    'countryLong': row[5],
                     'countryShort': row[6],
                     'uptime': row[8],
                     'totalUsers': row[9],
                     'totalTraffic': row[10],
 
                 }
+                
+                if server['countryLong'] not in seen_countries:
+                    seen_countries.add(server['countryLong'])
+                    print(f"Found country: {server['countryLong']} -> Short: {server['countryShort']}")
+
                 servers.append(server)
             
         SERVER_LIST = servers
@@ -77,148 +73,92 @@ def fetchServers():
     except Exception as e:
         print(f"Error fetching data: {e}")
         return []
+
+async def onConnect(websocket, data):
+    hostname = data.get('hostname')
+    result = VPN.connect(hostname, "MyVPN", "vpn", "vpn")
     
-async def broadcast(message):
-    """Send message to all connected clients"""
-    if CONNECTED_CLIENTS:
-        await asyncio.wait([client.send(json.dumps(message)) for client in CONNECTED_CLIENTS])
-        
-
-async def wsService(websocket):
-    """Handle WebSocket connections"""
-    CONNECTED_CLIENTS.add(websocket)
-    print(f"Client connected. Total clients: {len(CONNECTED_CLIENTS)}")
+    if result:
+        MONITOR.start(callback=VPN.disconnect)
     
-    try:
-        # Send initial data
-        await websocket.send(json.dumps({
-            'type': 'connection_status',
-            'connected': True,
-            'message': 'Connected to VPN Controller'
-        }))
-        
-        # Send current VPN status
-        await websocket.send(json.dumps({
-            'type': 'vpn_status',
-            'connected': VPN.isConnecting()
-        }))
-        
-        # Send server list (simple, matching your fetchServers structure)
-        if SERVER_LIST:
-            formatted_servers = []
-            for server in SERVER_LIST:
-                formatted_servers.append({
-                    'hostname': server['hostname'],
-                    'ip': server['ip'],
-                    'ping': server['ping'],
-                    'speed': server['speed'],
-                    'countryShort': server['countryShort'],
-                    'uptime': server['uptime'],
-                    'totalUsers': server['totalUsers'],
-                    'totalTraffic': server['totalTraffic']
-                })
-
-            await websocket.send(json.dumps({
-                'type': 'server_list',
-                'servers': formatted_servers
-            }))
-        
-        # Handle incoming messages
-        async for message in websocket:
-            data = json.loads(message)
-            command = data.get('command')
-            
-            if command == 'connect':
-                hostname = data.get('hostname')
-                name = data.get('name', 'MyVPN')
-                
-                result = VPN.connect(hostname, name, "vpn", "vpn")
-                
-                if result:
-                    # Start monitoring with callback to disconnect VPN
-                    MONITOR.start(callback=lambda: VPN.disconnect())
-
-                await broadcast({
-                    'type': 'vpn_status',
-                    'connected': result,
-                    'server': hostname
-                })
-                await websocket.send(json.dumps({
-                    'type': 'command_result',
-                    'command': 'connect',
-                    'success': result,
-                    'message': f"Connected to {hostname}" if result else "Connection failed"
-                }))
-                
-            elif command == 'disconnect':
-                result = VPN.disconnect()
-                MONITOR.stop() 
-                await broadcast({
-                    'type': 'vpn_status',
-                    'connected': not result
-                })
-                await websocket.send(json.dumps({
-                    'type': 'command_result',
-                    'command': 'disconnect',
-                    'success': result,
-                    'message': "VPN Disconnected" if result else "Disconnect failed"
-                }))
-                
-            elif command == 'get_status':
-                await websocket.send(json.dumps({
-                    'type': 'vpn_status',
-                    'connected': VPN.isConnecting()
-                }))
-                
-            elif command == 'refresh_servers':
-                servers = fetchServers()
-                formatted_servers = []
-                for server in servers:
-                    formatted_servers.append({
-                        'hostname': server['hostname'],
-                        'ip': server['ip'],
-                        'ping': server['ping'],
-                        'speed': server['speed'],
-                        'countryShort': server['countryShort'],
-                        'uptime': server['uptime'],
-                        'totalUsers': server['totalUsers'],
-                        'totalTraffic': server['totalTraffic']
-                    })
-                await websocket.send(json.dumps({
-                    'type': 'server_list',
-                    'servers': formatted_servers
-                }))
-                
-    except websockets.exceptions.ConnectionClosed:
-        print("Client disconnected")
-    finally:
-        CONNECTED_CLIENTS.remove(websocket)
-        
-
+    await WS.broadcast({
+        'type': 'vpn_status',
+        'connected': result,
+        'server': hostname
+    })    
+    
+async def onDisconnect(websocket, data):
+    result = VPN.disconnect()
+    MONITOR.stop()
+    
+    await WS.broadcast({
+        'type': 'vpn_status',
+        'connected': False
+    })
+    
+async def onGetStatus(websocket, data):
+    await WS.send(websocket, {
+        'type': 'vpn_status',
+        'connected': VPN.isConnecting(),
+        'last_connection': VPN.getLastConnection()
+    })
+    
+async def onRefreshServers(websocket, data):
+    servers = fetchServers()
+    formatted = [{
+        'hostname': s['hostname'],
+        'ip': s['ip'],
+        'ping': s['ping'],
+        'speed': s['speed'],
+        'countryLong': s['countryLong'],
+        'countryShort': s['countryShort'],
+        'uptime': s['uptime'],
+        'totalUsers': s['totalUsers'],
+        'totalTraffic': s['totalTraffic']
+    } for s in servers]
+    
+    await WS.send(websocket, {
+        'type': 'server_list',
+        'servers': formatted
+    })
+    
 def startHTTP():
     httpd = HTTPServer(('localhost', 8080), SimpleHTTPRequestHandler)
     print("HTTP Server running on http://localhost:8080")
     httpd.serve_forever()
 
 async def main():
-    # Fetch initial server list
-    print("Fetching server list...")
+    global WS
+    
+    print("Fetching servers...")
     fetchServers()
     print(f"Loaded {len(SERVER_LIST)} servers")
     
-    # Start WebSocket server
-    async with websockets.serve(wsService, "localhost", 8766):
-        print("=" * 50)
-        print(f"WebSocket: ws://localhost:8766")
-        print(f"Web UI: http://localhost:8080")
-        print("=" * 50)
-        
-        # Keep running
-        await asyncio.Future()
-
-if __name__ == "__main__":
+    WS = Ws(maxClients=2)
+    
+    # Register handlers
+    WS.on("connect", onConnect)
+    WS.on("disconnect", onDisconnect)
+    WS.on("get_status", onGetStatus)
+    WS.on("refresh_servers", onRefreshServers)
+    
+    
+    # Start HTTP server
     threading.Thread(target=startHTTP, daemon=True).start()
+    
     # Open browser
     webbrowser.open('http://localhost:8080')
-    # Run WebSocket server
-    asyncio.run(main())
+    
+    # Start WebSocket server
+    print("=" * 50)
+    print("WebSocket: ws://localhost:8766")
+    print("Web UI: http://localhost:8080")
+    print("=" * 50)
+    
+    await WS.start()
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("\nShutting down...")
