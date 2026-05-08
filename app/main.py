@@ -1,8 +1,10 @@
-import base64
+import os
 import re
 import csv
+import base64
 import asyncio
 import threading
+import json
 import webbrowser
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 import requests
@@ -10,9 +12,22 @@ from vpn import VPN
 from monitor import Monitor
 from websocket import Ws
 
-URL = "https://www.vpngate.net/api/iphone/"
+
+def loadConfig():
+    if os.path.exists('config.json'):
+        with open('config.json', 'r') as f:
+            return json.load(f)
+        
+CONFIG = loadConfig()
+
+WS_HOST = CONFIG['websocket']['host']
+WS_PORT = CONFIG['websocket']['port']
+MAX_CLIENTS = CONFIG['websocket']['max_clients']
+
+HTTP_PORT = CONFIG['http']['port']
+
+MONITOR = Monitor(CONFIG['monitor']['target'])
 SERVER_LIST = []
-MONITOR = Monitor("trgame.exe")
 WS = None
 
 def getTcpPort(config):
@@ -27,7 +42,7 @@ def getTcpPort(config):
 def fetchServers():
     global SERVER_LIST
     try:
-        response = requests.get(URL, timeout=10)
+        response = requests.get(CONFIG['vpn']['url'], timeout=10)
         lines = response.text.strip().split('\n')
 
         if lines[0].startswith('*'): # skip the first line
@@ -59,7 +74,6 @@ def fetchServers():
                     'uptime': row[8],
                     'totalUsers': row[9],
                     'totalTraffic': row[10],
-
                 }
                 
                 if server['countryLong'] not in seen_countries:
@@ -76,7 +90,13 @@ def fetchServers():
 
 async def onConnect(websocket, data):
     hostname = data.get('hostname')
-    result = VPN.connect(hostname, "MyVPN", "vpn", "vpn")
+    
+    result = VPN.connect(
+        hostname, 
+        CONFIG['vpn']['name'], 
+        CONFIG['vpn']['username'], 
+        CONFIG['vpn']['password'],
+    )
     
     if result:
         MONITOR.start(callback=VPN.disconnect)
@@ -100,7 +120,7 @@ async def onGetStatus(websocket, data):
     await WS.send(websocket, {
         'type': 'vpn_status',
         'connected': VPN.isConnecting(),
-        'last_connection': VPN.getLastConnection()
+        'last_connection': VPN.getVpnInfo()
     })
     
 async def onRefreshServers(websocket, data):
@@ -123,8 +143,8 @@ async def onRefreshServers(websocket, data):
     })
     
 def startHTTP():
-    httpd = HTTPServer(('localhost', 8080), SimpleHTTPRequestHandler)
-    print("HTTP Server running on http://localhost:8080")
+    httpd = HTTPServer(('localhost', HTTP_PORT), SimpleHTTPRequestHandler)
+    print(f"HTTP Server running on http://localhost:{HTTP_PORT}")
     httpd.serve_forever()
 
 async def main():
@@ -134,7 +154,7 @@ async def main():
     fetchServers()
     print(f"Loaded {len(SERVER_LIST)} servers")
     
-    WS = Ws(maxClients=2)
+    WS = Ws(host=WS_HOST, port=WS_PORT, maxClients=MAX_CLIENTS)
     
     # Register handlers
     WS.on("connect", onConnect)
@@ -142,17 +162,16 @@ async def main():
     WS.on("get_status", onGetStatus)
     WS.on("refresh_servers", onRefreshServers)
     
-    
     # Start HTTP server
     threading.Thread(target=startHTTP, daemon=True).start()
     
     # Open browser
-    webbrowser.open('http://localhost:8080')
+    webbrowser.open(f'http://localhost:{HTTP_PORT}')
     
     # Start WebSocket server
     print("=" * 50)
-    print("WebSocket: ws://localhost:8766")
-    print("Web UI: http://localhost:8080")
+    print(f"WebSocket: ws://{WS_HOST}:{WS_PORT}")
+    print(f"Web UI: http://localhost:{HTTP_PORT}")
     print("=" * 50)
     
     await WS.start()

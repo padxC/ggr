@@ -13,7 +13,7 @@ class VPN:
         if os.path.exists(VPN.DATA_FILE):
             with open(VPN.DATA_FILE, 'r') as f:
                 return json.load(f)
-        return {'last_connection': None}
+        return {'vpn': None}
     
     @staticmethod
     def _save(data):
@@ -22,20 +22,21 @@ class VPN:
             json.dump(data, f, indent=2)
             
     @staticmethod
-    def saveConnection(hostname):
+    def saveConnection(hostname, region):
         """Save last connection"""
         data = VPN._load()
-        data['last_connection'] = {
+        data['vpn'] = {
             'hostname': hostname,
-            'timestamp': time.time()
+            'last_connection': time.time(),
+            'region': region
         }
         VPN._save(data)
     
     @staticmethod
-    def getLastConnection():
+    def getVpnInfo():
         """Get last connection"""
         data = VPN._load()
-        return data.get('last_connection')
+        return data.get('vpn')
     
 
     @staticmethod
@@ -123,7 +124,7 @@ class VPN:
             return False
         
     @staticmethod
-    def connect(address, vpnName="KoreaVPN", userName="vpn", password="vpn"):
+    def connect(address, vpnName, userName, password):
         try:
             # Remove existing connections
             VPN.remove(vpnName);

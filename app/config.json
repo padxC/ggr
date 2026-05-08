@@ -1,0 +1,21 @@
+{
+    "vpn": {
+        "name": "VPN",
+        "username": "vpn",
+        "password": "vpn",
+        "url": "https://www.vpngate.net/api/iphone/",
+        "timeout": 10
+    },
+    "monitor": {
+        "target": "trgame.exe",
+        "check_interval": 2
+    },
+    "websocket": {
+        "host": "localhost",
+        "port": 8766,
+        "max_clients": 2
+    },
+    "http": {
+        "port": 8080
+    }
+}
