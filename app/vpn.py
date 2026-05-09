@@ -7,6 +7,7 @@ import time
 class VPN:
     DATA_FILE = "data.json"
     
+    # using thread
     @staticmethod
     def _load():
         """Load or create database"""
@@ -33,7 +34,7 @@ class VPN:
         VPN._save(data)
     
     @staticmethod
-    def getVpnInfo():
+    def getInfo():
         """Get last connection"""
         data = VPN._load()
         return data.get('vpn')
@@ -41,38 +42,47 @@ class VPN:
 
     @staticmethod
     def isReachable(address):
-        """Check if VPN server is reachable"""
+        """Check if VPN server port is reachable using Test-NetConnection"""
         try:
-            host = address.split(':')[0]  # Remove port if present
+            host, port = address.split(':')
+            
             result = subprocess.run(
-                ['powershell.exe', 'ping', '-n', '2', '-w', '1000', host],
+                ['powershell.exe', '-Command', 'Test-NetConnection', host, '-Port', str(port), '-WarningAction', 'SilentlyContinue'],
                 capture_output=True,
+                text=True,
+                timeout=10
+            )
+            
+            # Check if connection succeeded
+            return "TcpTestSucceeded : True" in result.stdout
+                
+        except Exception as e:
+            print(f"✗ Error checking reachability: {e}")
+            return False
+            
+    @staticmethod
+    def getHostname(vpnName):
+        """Get hostname of a specific VPN connection"""
+        try:
+            result = subprocess.run(
+                ['powershell.exe', 'Get-VpnConnection', '-Name', vpnName, 
+                 '|', 'Select-Object', '-ExpandProperty', 'ServerAddress'],
+                capture_output=True,
+                text=True,
                 timeout=3
             )
-            return result.returncode == 0
+            print(result)
+            hostname = result.stdout.strip()
+            return hostname if hostname else None
         except:
-            return False
+            return None
         
-    @staticmethod
-    def checkConnection(hostname):
-        """Check if saved VPN is still usable"""
-        # Check 1: Is the last server reachable?
-        reachable = VPN.isReachable(hostname)
-        
-        # Check 2: Is VPN currently connected?
-        connected = VPN.isConnecting()
-        
-        return {
-            'reachable': reachable,
-            'connected': connected,
-        }
-
     @staticmethod
     def isConnecting():
         """Check if VPN is currently connected"""
         try:
             result = subprocess.run(['powershell.exe', 'rasdial'], 
-                                  capture_output=True, text=True, timeout=5)
+                                  capture_output=True, text=True, timeout=3)
             return "Connected" in result.stdout
         except:
             return False
@@ -92,24 +102,16 @@ class VPN:
                 ['powershell.exe', 'Remove-VpnConnection', '-Name', vpnName, '-Force'],
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=3
             )
             
             if result.returncode == 0:
                 print(f"✓ Successfully removed {vpnName}")
                 return True
             else:
-                # Check if connection doesn't exist
-                if "not found" in result.stderr.lower() or "does not exist" in result.stderr.lower():
-                    print(f"Connection {vpnName} does not exist")
-                    return True
-                else:
-                    print(f"✗ Failed to remove: {result.stderr}")
-                    return False
+                print(f"✗ Failed to remove: {result.stderr}")
+                return False
                     
-        except subprocess.TimeoutExpired:
-            print("❌ Remove operation timeout")
-            return False
         except Exception as e:
             print(f"❌ Error removing VPN: {e}")
             return False
@@ -124,34 +126,53 @@ class VPN:
             return False
         
     @staticmethod
-    def connect(address, vpnName, userName, password):
+    def connect(serverAddress, vpnName, userName, password, region):
         try:
-            # Remove existing connections
-            VPN.remove(vpnName);
-            
-            # create new VPN
-            subprocess.run(
-                ['powershell.exe', 'Add-VpnConnection', '-Name', vpnName, '-ServerAddress', address, '-Force'],
+            isExist = subprocess.run(
+                ['powershell.exe', 'Get-VpnConnection', '-Name', vpnName],
                 capture_output=True,
-                text=True
+                text=True,
+                timeout=3
             )
             
+            if isExist.returncode != 0:
+                result = subprocess.run(
+                    ['powershell.exe', 'Add-VpnConnection', '-Name', vpnName, '-ServerAddress', serverAddress, '-Force'],
+                    capture_output=True,
+                    text=True
+                )
+
+                if result.returncode == 0:
+                    print(f"✓ Create new: {serverAddress}")
+                else:
+                    print(f"Error creating VPN: {e}")
+                    return
+            else:
+                subprocess.run(
+                    ['powershell.exe', 'Set-VpnConnection', '-Name', vpnName, 
+                     '-ServerAddress', serverAddress, '-Force'],
+                    capture_output=True,
+                    text=True,
+                    timeout=3
+                )
+            
+            
             print("🔌 Establishing VPN connection...")
-            connectResult = subprocess.run(
+            isConnected = subprocess.run(
                 ['powershell.exe', 'rasdial', vpnName, userName, password],
                 capture_output=True,
                 text=True
             )
 
-            if connectResult.returncode == 0:
+            if isConnected.returncode == 0:
+                VPN.saveConnection(serverAddress, region)
+                print(f"✓ Saved: {serverAddress} ({region})")
                 return True;
             else:
                 print("Connection Failed: {connectResult.stdout}")
                 return False;
 
-        except subprocess.TimeoutExpired:
-            print("❌ Connection timeout")
-            return False
         except Exception as e:
             print(f"❌ Connection error: {e}")
             return False;
+    

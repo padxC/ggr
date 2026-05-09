@@ -4,8 +4,8 @@ class Repository {
         this.ws = ws;
     }
 
-    connect(hostname, name = 'MyVPN') {
-        return this.ws.send('connect', { hostname, name });
+    connect(hostname, region) {
+        return this.ws.send('connect', { hostname, region });
     }
 
     disconnect() {

@@ -90,12 +90,16 @@ def fetchServers():
 
 async def onConnect(websocket, data):
     hostname = data.get('hostname')
+    region = data.get('region')
+    
+    print(hostname, region)
     
     result = VPN.connect(
         hostname, 
         CONFIG['vpn']['name'], 
         CONFIG['vpn']['username'], 
         CONFIG['vpn']['password'],
+        region
     )
     
     if result:
@@ -104,7 +108,9 @@ async def onConnect(websocket, data):
     await WS.broadcast({
         'type': 'vpn_status',
         'connected': result,
-        'server': hostname
+        'hostname': hostname,
+        'region': region,
+        'reachable': VPN.isReachable(hostname),
     })    
     
 async def onDisconnect(websocket, data):
@@ -117,10 +123,14 @@ async def onDisconnect(websocket, data):
     })
     
 async def onGetStatus(websocket, data):
+    vpnInfo = VPN.getInfo()
+
     await WS.send(websocket, {
         'type': 'vpn_status',
         'connected': VPN.isConnecting(),
-        'last_connection': VPN.getVpnInfo()
+        'hostname': vpnInfo['hostname'],
+        'reachable': VPN.isReachable(vpnInfo['hostname']),
+        'region': vpnInfo['region']
     })
     
 async def onRefreshServers(websocket, data):

@@ -7,10 +7,11 @@ class UI {
             connectionStatus: document.getElementById('connectionStatus'),
             statusIndicator: document.getElementById('statusIndicator'),
             activeNode: document.getElementById('activeNode'),
+            activeRegion: document.getElementById('activeRegion'),  // Add this
             activePing: document.getElementById('activePing'),
             currentSpeed: document.getElementById('currentSpeed'),
-            wsDot: document.getElementById('wsDot'),
-            wsText: document.getElementById('wsText')
+            availabilityDot: document.getElementById('availabilityDot'),
+            availabilityText: document.getElementById('availabilityText')
         };
     }
 
@@ -37,22 +38,35 @@ class UI {
         }
     }
 
-    updateWebSocketStatus(connected) {
-        const { wsDot, wsText } = this.elements;
-        
-        if (connected) {
-            if (wsDot) wsDot.className = 'ws-dot connected';
-            if (wsText) wsText.textContent = 'Connected';
-        } else {
-            if (wsDot) wsDot.className = 'ws-dot disconnected';
-            if (wsText) wsText.textContent = 'Disconnected';
+    updateAvailability(reachable) {
+        if (this.elements.availabilityDot && this.elements.availabilityText) {
+            if (reachable) {
+                this.elements.availabilityDot.className = 'ws-dot connected';
+                this.elements.availabilityText.textContent = 'Available';
+                this.elements.availabilityText.style.color = '#10b981';
+            } else {
+                this.elements.availabilityDot.className = 'ws-dot disconnected';
+                this.elements.availabilityText.textContent = 'Unavailable';
+                this.elements.availabilityText.style.color = '#ef4444';
+            }
         }
     }
 
-    updateServerDetails(server, stats) {
-        if (this.elements.activeNode) {
-            this.elements.activeNode.textContent = stats.nodeId;
+    updateRegion(region) {
+        if (this.elements.activeRegion) {
+            this.elements.activeRegion.textContent = region || '--';
         }
+    }
+
+    updateHostname(hostname) {
+        if (this.elements.activeNode) {
+            const nodeId = hostname ? hostname.split(':')[0] : '--';
+            this.elements.activeNode.textContent = nodeId;
+        }
+    }
+
+
+    updateServerDetails(server, stats) {
         if (this.elements.activePing) {
             this.elements.activePing.textContent = `${stats.ping} ms`;
         }
@@ -403,14 +417,31 @@ class App {
     }
 
 
-    handleVPNStatus(data) {
-        this.isConnecting = false;
-        this.ui.updateVPNStatus(data.connected, data.server);
-        this.activity.add(
-            `VPN ${data.connected ? 'connected' : 'disconnected'}`,
-            data.connected ? 'success' : 'info'
-        );
+handleVPNStatus(data) {
+    this.isConnecting = false;
+    
+    console.log('🔵 VPN Status Received:', data);  // ← Add this
+    console.log('Region value:', data.region);
+    
+    // Update connection status
+    this.ui.updateVPNStatus(data.connected, data.hostname);
+    
+    // Update hostname
+    this.ui.updateHostname(data.hostname);
+    
+    // Update region
+    this.ui.updateRegion(data.region);
+    
+    // Update availability
+    this.ui.updateAvailability(data.reachable);
+    
+    // Activity log
+    if (data.connected) {
+        this.activity.add(`VPN connected to ${data.region}`, 'success');
+    } else {
+        this.activity.add(`VPN disconnected`, 'info');
     }
+}
 
     handleServerList(data) {
         if (data.servers && data.servers.length > 0) {
@@ -457,10 +488,11 @@ class App {
         this.isConnecting = true;
         
         const nodeId = this.serverTable.getNodeId(server);
-        this.activity.add(`Connecting to ${nodeId}...`, 'info');
-        this.activity.add(`Server address: ${server.hostname}`, 'info');
+        const region = server.countryShort === 'KR' ? 'Korea' : 'Thailand';
+
+        this.activity.add(`Connecting to ${nodeId} (${region})...`, 'info');
         
-        this.repository.connect(server.hostname);
+        this.repository.connect(server.hostname, region);
     }
 
     disconnectVPN() {

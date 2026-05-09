@@ -71,7 +71,6 @@ class Ws:
         print(f"Client disconnected. Total: {len(self.clients)}")
         
     async def _processMessage(self, websocket, message):
-        
         try:
             data = json.loads(message)
             command = data.get("command")

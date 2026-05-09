@@ -57,61 +57,68 @@
         </div>
     </aside>
 
-    <!-- Right Sidebar (Status Panel) -->
-    <aside class="status-sidebar">
-        <div class="status-card">
-            <div class="status-header">
-                <div>
-                    <div class="status-label">Status</div>
-                    <div class="status-value" id="connectionStatus">Disconnected</div>
-                </div>
-                <div class="status-indicator disconnected" id="statusIndicator"></div>
+<aside class="status-sidebar">
+    <div class="status-card">
+        <div class="status-header">
+            <div>
+                <div class="status-label">Status</div>
+                <div class="status-value" id="connectionStatus">Disconnected</div>
             </div>
-            <div class="ws-status" id="wsStatus">
-                <span class="ws-dot disconnected" id="wsDot"></span>
-                <span id="wsText">Connecting...</span>
+            <div class="status-indicator disconnected" id="statusIndicator"></div>
+        </div>
+        <div class="ws-status" id="availabilityStatus">
+            <span class="ws-dot" id="availabilityDot"></span>
+            <span id="availabilityText">Checking...</span>
+        </div>
+        <div class="current-download">
+            <div class="speed-value">
+                <span class="speed-number" id="currentSpeed">0</span>
+                <span class="speed-unit">Mbps</span>
             </div>
-            <div class="current-download">
-                <div class="speed-value">
-                    <span class="speed-number" id="currentSpeed">0</span>
-                    <span class="speed-unit">Mbps</span>
-                </div>
-                <div class="download-label">Current Download</div>
+            <div class="download-label">Current Download</div>
+        </div>
+        <div class="status-details">
+            <div class="detail-row">
+                <div class="detail-label">Hostname</div>
+                <div class="detail-value" id="activeNode">--</div>
             </div>
-            <div class="status-details">
-                <div class="detail-row">
-                    <!-- change to hostname -->
-                    <div class="detail-label">Node ID</div>
-                    <div class="detail-value" id="activeNode">--</div>
+            <div class="detail-row">
+                <div class="detail-label">Region</div>
+                <div class="detail-value" id="activeRegion">--</div>
+            </div>
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <div class="detail-label">Ping</div>
+                    <div class="detail-value" id="activePing">--</div>
                 </div>
-                <div class="detail-grid">
-                    <div class="detail-item">
-                        <div class="detail-label">Ping</div>
-                        <div class="detail-value" id="activePing">--</div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Upload</div>
-                        <div class="detail-value" id="activeUpload">-- <small>Mbps</small></div>
-                    </div>
+                <div class="detail-item">
+                    <div class="detail-label">Upload</div>
+                    <div class="detail-value" id="activeUpload">-- <small>Mbps</small></div>
                 </div>
             </div>
         </div>
+    </div>
 
-        <div class="action-buttons">
-            <button class="action-btn" id="openBrowserBtn">
-                <span>Open Rhaon</span>
-                <span class="material-symbols-outlined">public</span>
-            </button>
-            <button class="action-btn primary" id="autoConnectBtn">
-                <span>Auto-Connect</span>
-                <span class="material-symbols-outlined">bolt</span>
-            </button>
-            <button class="action-btn danger" id="disconnectBtn">
-                <span>Disconnect</span>
-                <span class="material-symbols-outlined">power_settings_new</span>
-            </button>
-        </div>
-    </aside>
+    <!-- MOVED INSIDE the sidebar -->
+    <div class="action-buttons">
+        <button class="action-btn continue" id="continueConnectBtn">
+            <span>Continue Connect</span>
+            <span class="material-symbols-outlined">history</span>
+        </button>
+        <button class="action-btn" id="openBrowserBtn">
+            <span>Open Rhaon</span>
+            <span class="material-symbols-outlined">public</span>
+        </button>
+        <button class="action-btn primary" id="autoConnectBtn">
+            <span>Auto-Connect</span>
+            <span class="material-symbols-outlined">bolt</span>
+        </button>
+        <button class="action-btn danger" id="disconnectBtn">
+            <span>Disconnect</span>
+            <span class="material-symbols-outlined">power_settings_new</span>
+        </button>
+    </div>
+</aside>
 
     <!-- Main Content -->
     <main class="main-content">
