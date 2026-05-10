@@ -318,6 +318,7 @@ class App {
         this.activity = null;
         this.serverTable = null;
         this.isConnecting = false;
+        this.pendingConnect = false;
         
         this.init();
     }
@@ -407,6 +408,31 @@ class App {
             autoConnectBtn.addEventListener('click', () => this.autoConnect());
         }
         
+            const regionToggles = document.querySelectorAll('.ac-region');
+    regionToggles.forEach(toggle => {
+        toggle.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent event bubbling
+            
+            // Remove active class from all toggles
+            regionToggles.forEach(t => t.classList.remove('active'));
+            
+            // Add active class to clicked toggle
+            toggle.classList.add('active');
+            
+            // Get selected region
+            const region = toggle.dataset.region;
+            const regionName = region === 'KR' ? 'Korea' : 'Thailand';
+            
+            // Just show info - NO auto-connect
+            this.activity.add(`Region changed to ${regionName}. Click Auto-Connect to find best server.`, 'info');
+        });
+    });
+        
+        const continueConnectBtn = document.getElementById('continueConnectBtn');
+    if (continueConnectBtn) {
+        continueConnectBtn.addEventListener('click', () => this.continueConnect());
+    }
+        
         // Open browser button
         const openBrowserBtn = document.getElementById('openBrowserBtn');
         if (openBrowserBtn) {
@@ -422,6 +448,17 @@ handleVPNStatus(data) {
     
     console.log('🔵 VPN Status Received:', data);  // ← Add this
     console.log('Region value:', data.region);
+    
+    if (this.pendingConnect) {
+        this.pendingConnect = false;
+        
+        // Check if we have a valid saved connection
+        
+        const nodeId = data.hostname.split(':')[0];
+        this.activity.add(`Reconnecting to ${nodeId} (${data.region})...`, 'info');
+        this.repository.connect(data.hostname, data.region);
+        return;
+    }
     
     // Update connection status
     this.ui.updateVPNStatus(data.connected, data.hostname);
@@ -500,31 +537,53 @@ handleVPNStatus(data) {
         this.repository.disconnect();
     }
 
-    autoConnect() {
-        const servers = this.serverTable.servers;
-        
-        if (!servers || servers.length === 0) {
-            this.activity.add('No servers available. Please refresh the list first.', 'error');
-            return;
-        }
-        
-        // Find best server (lowest ping)
-        const bestServer = [...servers].sort((a, b) => {
-            const pingA = parseInt(a.ping) || 9999;
-            const pingB = parseInt(b.ping) || 9999;
-            return pingA - pingB;
-        })[0];
-        
-        const nodeId = this.serverTable.getNodeId(bestServer);
-        this.activity.add(`Auto-selected best server: ${nodeId} (${bestServer.ping}ms)`, 'success');
-        
-        // Update selection
-        this.serverTable.selectedServer = bestServer;
-        this.serverTable.render();
-        
-        // Connect
-        this.repository.connect(bestServer.hostname);
+    continueConnect() {
+    // Request the saved connection info from backend
+    this.pendingConnect = true;
+    this.activity.add('Retrieving last connection...', 'info');
+    this.repository.getStatus();
+}
+
+autoConnect() {
+    const servers = this.serverTable.servers;
+    
+    if (!servers || servers.length === 0) {
+        this.activity.add('No servers available. Please refresh the list first.', 'error');
+        return;
     }
+    
+    // Get selected region from active toggle
+    const activeRegion = document.querySelector('.ac-region.active');
+    const selectedRegion = activeRegion ? activeRegion.dataset.region : 'KR';
+    const regionName = selectedRegion === 'KR' ? 'Korea' : 'Thailand';
+    
+    // Filter servers by selected region
+    const regionServers = servers.filter(s => s.countryShort === selectedRegion);
+    
+    if (regionServers.length === 0) {
+        this.activity.add(`No ${regionName} servers available. Please refresh the list.`, 'error');
+        return;
+    }
+    
+    // Find best server in selected region (lowest ping)
+    const bestServer = [...regionServers].sort((a, b) => {
+        const pingA = parseInt(a.ping) || 9999;
+        const pingB = parseInt(b.ping) || 9999;
+        return pingA - pingB;
+    })[0];
+    
+    const nodeId = this.serverTable.getNodeId(bestServer);
+    const finalRegion = bestServer.countryShort === 'KR' ? 'Korea' : 'Thailand';
+    
+    this.activity.add(`Auto-selected best ${finalRegion} server: ${nodeId} (${bestServer.ping}ms)`, 'success');
+    
+    // Update selection
+    this.serverTable.selectedServer = bestServer;
+    this.serverTable.render();
+    
+    // Connect to VPN
+    this.repository.connect(bestServer.hostname, finalRegion);
+}
 
     requestInitialData() {
         this.repository.getStatus();

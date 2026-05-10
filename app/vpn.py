@@ -91,11 +91,6 @@ class VPN:
     def remove(vpnName):
         """Remove/Delete VPN connection completely from system"""
         try:
-            # First disconnect if connected
-            if VPN.isConnecting():
-                print(f"Disconnecting {vpnName}...")
-                VPN.disconnect()
-            
             # Remove the VPN connection
             print(f"Removing VPN connection: {vpnName}")
             result = subprocess.run(
@@ -121,13 +116,19 @@ class VPN:
         try:
             subprocess.run(['powershell.exe', 'rasdial', '/disconnect'], capture_output=True)
             time.sleep(1)
-            return not VPN.isConnecting()
+            return True
         except:
             return False
         
     @staticmethod
     def connect(serverAddress, vpnName, userName, password, region):
         try:
+            # if connecting diconnect first
+            if VPN.isConnecting():
+                print(f"Disconnecting {vpnName}...")
+                VPN.disconnect()
+
+
             isExist = subprocess.run(
                 ['powershell.exe', 'Get-VpnConnection', '-Name', vpnName],
                 capture_output=True,

@@ -101,18 +101,38 @@
 
     <!-- MOVED INSIDE the sidebar -->
     <div class="action-buttons">
-        <button class="action-btn continue" id="continueConnectBtn">
-            <span>Continue Connect</span>
-            <span class="material-symbols-outlined">history</span>
-        </button>
+            <button class="action-btn continue" id="continueConnectBtn">
+        <span>Continue Connect</span>
+        <span class="material-symbols-outlined">history</span>
+    </button>
         <button class="action-btn" id="openBrowserBtn">
             <span>Open Rhaon</span>
             <span class="material-symbols-outlined">public</span>
         </button>
-        <button class="action-btn primary" id="autoConnectBtn">
-            <span>Auto-Connect</span>
-            <span class="material-symbols-outlined">bolt</span>
-        </button>
+
+<button class="action-btn primary" id="autoConnectBtn">
+    <div class="auto-connect-container">
+        <div class="ac-top">
+            <span class="ac-label">Auto-Connect</span>
+            <span class="material-symbols-outlined ac-icon">autorenew</span>
+            <!-- <span class="material-symbols-outlined ac-icon">bolt</span> -->
+        </div>
+        <div class="ac-region-selector">
+            <span class="ac-region kr active" data-region="KR">
+                <span class="flag">🇰🇷</span>
+                <span>KR</span>
+            </span>
+            <span class="ac-region th" data-region="TH">
+                <span class="flag">🇹🇭</span>
+                <span>TH</span>
+            </span>
+        </div>
+    </div>
+</button>
+
+    </div>
+
+        
         <button class="action-btn danger" id="disconnectBtn">
             <span>Disconnect</span>
             <span class="material-symbols-outlined">power_settings_new</span>

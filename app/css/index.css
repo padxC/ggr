@@ -11,10 +11,6 @@
 
 /* Pages */
 @import url('pages/dashboard.css');
-/* @import url('pages/servers.css');
-@import url('pages/blacklist.css');
-@import url('pages/logs.css');
-@import url('pages/settings.css'); */
 
 /* Utilities */
 @import url('utilities.css');
