@@ -3,13 +3,17 @@
         "name": "VPN",
         "username": "vpn",
         "password": "vpn",
-        "url": "https://www.vpngate.net/api/iphone/",
-        "timeout": 10
+        "url": "https://www.vpngate.net/api/iphone/"
     },
     "monitor": {
-        "target": "trgame.exe",
-        "check_interval": 2
+        "korea": "trgame.exe",
+        "thailand": "trgame.exe"
     },
+    "detector": {
+        "orange": {"low": [5, 80, 100], "high": [20, 255, 255]},
+        "green": {"low": [40, 80, 100], "high": [80, 255, 255]}
+    },
+
     "websocket": {
         "host": "localhost",
         "port": 8766,

@@ -32,13 +32,6 @@ class VPN:
             'region': region
         }
         VPN._save(data)
-    
-    @staticmethod
-    def getInfo():
-        """Get last connection"""
-        data = VPN._load()
-        return data.get('vpn')
-    
 
     @staticmethod
     def isReachable(address):
@@ -59,22 +52,28 @@ class VPN:
         except Exception as e:
             print(f"✗ Error checking reachability: {e}")
             return False
-            
+        
     @staticmethod
-    def getHostname(vpnName):
-        """Get hostname of a specific VPN connection"""
+    def getConnectionInfo(vpnName):
         try:
             result = subprocess.run(
-                ['powershell.exe', 'Get-VpnConnection', '-Name', vpnName, 
-                 '|', 'Select-Object', '-ExpandProperty', 'ServerAddress'],
+                [
+                    'powershell.exe',
+                    '-Command',
+                    f"Get-VpnConnection -Name '{vpnName}' | ConvertTo-Json"
+                ],
                 capture_output=True,
                 text=True,
                 timeout=3
             )
-            print(result)
-            hostname = result.stdout.strip()
-            return hostname if hostname else None
-        except:
+
+            if not result.stdout.strip():
+                return None
+
+            return json.loads(result.stdout)
+
+        except Exception as e:
+            print(f"VPN info error: {e}")
             return None
         
     @staticmethod

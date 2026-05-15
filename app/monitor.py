@@ -3,18 +3,19 @@ import threading
 import time
 
 class Monitor:
-    def __init__(self, processName):
-        self.processName = processName
+    def __init__(self):
+        self.processName = None
         self.running = False
         self.thread = None
         self.callback = None
     
-    def start(self, callback):
+    def start(self, processName, callback):
         """Start monitoring in a separate thread"""
         if self.running:
             print("Monitor already running")
             return False
-        
+
+        self.processName = processName
         self.callback = callback
         self.running = True
         self.thread = threading.Thread(target=self._watching, daemon=True)
@@ -31,7 +32,6 @@ class Monitor:
     def _watching(self):
         """Monitor loop running in separate thread"""
         while self.running:
-            print("i am watching")
             if self._isProcessRunning():
                 print(f"Detected {self.processName}!")
                 if self.callback:

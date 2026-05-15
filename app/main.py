@@ -19,6 +19,7 @@ def loadConfig():
             return json.load(f)
         
 CONFIG = loadConfig()
+MONITOR = Monitor()
 
 WS_HOST = CONFIG['websocket']['host']
 WS_PORT = CONFIG['websocket']['port']
@@ -26,7 +27,6 @@ MAX_CLIENTS = CONFIG['websocket']['max_clients']
 
 HTTP_PORT = CONFIG['http']['port']
 
-MONITOR = Monitor(CONFIG['monitor']['target'])
 SERVER_LIST = []
 WS = None
 
@@ -103,7 +103,10 @@ async def onConnect(websocket, data):
     )
     
     if result:
-        MONITOR.start(callback=VPN.disconnect)
+        if region == 'Korea':
+            MONITOR.start(CONFIG['monitor']['korea'], callback=VPN.disconnect)
+        elif region == 'Thailand':
+            MONITOR.start(CONFIG['monitor']['thailand'], callback=VPN.disconnect)
     
     await WS.broadcast({
         'type': 'vpn_status',
@@ -123,14 +126,14 @@ async def onDisconnect(websocket, data):
     })
     
 async def onGetStatus(websocket, data):
-    vpnInfo = VPN.getInfo()
+    vpnConfig = CONFIG['vpn']
 
     await WS.send(websocket, {
         'type': 'vpn_status',
         'connected': VPN.isConnecting(),
-        'hostname': vpnInfo['hostname'],
-        'reachable': VPN.isReachable(vpnInfo['hostname']),
-        'region': vpnInfo['region']
+        'hostname': vpnConfig['hostname'],
+        'reachable': VPN.isReachable(vpnConfig['hostname']),
+        'region': vpnConfig['region']
     })
     
 async def onRefreshServers(websocket, data):
